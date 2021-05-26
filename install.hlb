@@ -1,0 +1,34 @@
+fs default() {
+  base
+  artifacts
+}
+
+fs base() {
+  image "alpine:3.13"
+  run "apk add -U g++ cmake make libgcc git python3"
+  run "git clone https://github.com/bytecodealliance/wasm-micro-runtime.git /src"
+  dir "/src"
+  run "git checkout WAMR-04-15-2021"
+
+  # wamrc
+  dir "/src/wamr-compiler"
+  run "sh" "/src/wamr-compiler/build_llvm.sh"
+  run "mkdir build"
+  dir "/src/wamr-compiler/build"
+  run "cmake .. && make"
+
+  # iwasm
+  dir "src"
+  run "sed -i'' 's/__syscall_slong_t/long/' /src/core/iwasm/libraries/libc-wasi/sandboxed-system-primitives/src/posix.c"
+  dir "/src/product-mini/platforms/linux"
+  run "mkdir build"
+  dir "/src/product-mini/platforms/linux/build"
+  run "cmake .. && make"
+}
+
+fs artifacts() {
+  scratch
+  copy base "/src/wamr-compiler/build/wamrc" "/wamrc"
+  copy base "/src/product-mini/platforms/linux/build/iwasm" "/iwasm"
+  download "./output"
+}
